@@ -1,27 +1,40 @@
 <template>
-  <div id="app">
-    <Artists></Artists>
-  </div>
+  <v-app>
+    <v-app-bar
+      app
+      color="primary"
+      dark
+    >
+    </v-app-bar>
+
+    <v-content>
+      <Tracks/>
+      <Artists/>
+    </v-content>
+  </v-app>
 </template>
 
 <script>
-import Artists from '@/components/Artists.vue'
+import Artists from './components/Artists';
+import Tracks from './components/Tracks';
 
 export default {
   name: 'App',
-  components: {
-    Artists
-  }
-}
-</script>
 
+  components: {
+    Artists,
+    Tracks,
+  },
+
+  data: () => ({
+    //
+  }),
+};
+</script>
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed');
+  @import url('https://fonts.googleapis.com/css2?family=Roboto');
+  .v-application {
+    font-family: 'Roboto Condensed', Avenir, sans-serif !important;
+  }
 </style>

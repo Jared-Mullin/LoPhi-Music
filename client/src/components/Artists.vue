@@ -1,8 +1,15 @@
 <template>
     <div>
-        <div v-for="artist in artists" :key="artist.name">
-            <h3>{{artist.name}}</h3>
-        </div>
+        <v-layout>
+            <v-row class="artist-row">
+                <v-col :lg="3" :md="4" :sm="6" :xs="12" v-for="artist in artists" :key="artist.id">
+                    <v-card class="artist-card" :href="artist.external_urls.spotify">
+                        <v-card-title>{{artist.name}}</v-card-title>
+                        <v-img :src="artist.images[0].url" aspect-ratio="1"></v-img>
+                    </v-card>
+                </v-col>
+            </v-row>
+        </v-layout>
     </div>
 </template>
 <script>
@@ -29,5 +36,10 @@ export default {
 }
 </script>
 <style>
-
+    .artist-row {
+        padding: 1%;
+    }
+    .artist-card {
+        margin: 2.5%;
+    }   
 </style>
