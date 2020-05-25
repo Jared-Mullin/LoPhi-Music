@@ -80,6 +80,10 @@ type Track struct {
 	Type        string `json:"type"`
 	URI         string `json:"uri"`
 }
+type Items struct {
+	Href  string   `json:"href"`
+	Items []Artist `json:"items"`
+}
 
 var (
 	accessToken  string
@@ -201,11 +205,10 @@ func main() {
 					log.Println(err)
 				} else {
 					genres := make(map[string]int)
-					artists := make([]Artist, 0)
-					json.Unmarshal(body, &artists)
-					for _, artist := range artists {
+					var itemWrapper Items
+					json.Unmarshal(body, &itemWrapper)
+					for _, artist := range itemWrapper.Items {
 						for _, genre := range artist.Genres {
-							fmt.Println(genre)
 							genres[genre] = genres[genre] + 1
 						}
 					}
