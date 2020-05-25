@@ -1,13 +1,7 @@
 <template>
   <v-app>
-    <v-app-bar
-      app
-      color="primary"
-      dark
-    >
-    </v-app-bar>
-
     <v-content>
+      <Genres/>
       <Tracks/>
       <Artists/>
     </v-content>
@@ -17,6 +11,7 @@
 <script>
 import Artists from './components/Artists';
 import Tracks from './components/Tracks';
+import Genres from './components/Genres';
 
 export default {
   name: 'App',
@@ -24,6 +19,7 @@ export default {
   components: {
     Artists,
     Tracks,
+    Genres,
   },
 
   data: () => ({
