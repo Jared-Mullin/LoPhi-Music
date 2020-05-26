@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -32,6 +33,56 @@ type Artist struct {
 	Popularity int    `json:"popularity"`
 	Type       string `json:"type"`
 	URI        string `json:"uri"`
+}
+
+type Album struct {
+	AlbumType        string   `json:"album_type"`
+	Artists          []Artist `json:"artists"`
+	AvailableMarkets []string `json:"available_markets"`
+	ExternalUrls     struct {
+		Spotify string `json:"spotify"`
+	} `json:"external_urls"`
+	Href   string `json:"href"`
+	ID     string `json:"id"`
+	Images []struct {
+		Height int    `json:"height"`
+		URL    string `json:"url"`
+		Width  int    `json:"width"`
+	} `json:"images"`
+	Name                 string `json:"name"`
+	ReleaseDate          string `json:"release_date"`
+	ReleaseDatePrecision string `json:"release_date_precision"`
+	TotalTracks          int    `json:"total_tracks"`
+	Type                 string `json:"type"`
+	URI                  string `json:"uri"`
+}
+
+type Track struct {
+	Album            Album    `json:"album"`
+	Artists          []Artist `json:"artists"`
+	AvailableMarkets []string `json:"available_markets"`
+	DiscNumber       int      `json:"disc_number"`
+	DurationMs       int      `json:"duration_ms"`
+	Explicit         bool     `json:"explicit"`
+	ExternalIds      struct {
+		Isrc string `json:"isrc"`
+	} `json:"external_ids"`
+	ExternalUrls struct {
+		Spotify string `json:"spotify"`
+	} `json:"external_urls"`
+	Href        string `json:"href"`
+	ID          string `json:"id"`
+	IsLocal     bool   `json:"is_local"`
+	Name        string `json:"name"`
+	Popularity  int    `json:"popularity"`
+	PreviewURL  string `json:"preview_url"`
+	TrackNumber int    `json:"track_number"`
+	Type        string `json:"type"`
+	URI         string `json:"uri"`
+}
+type Items struct {
+	Href  string   `json:"href"`
+	Items []Artist `json:"items"`
 }
 
 var (
@@ -126,8 +177,50 @@ func main() {
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
+				} else {
+					w.Write(body)
 				}
-				w.Write(body)
+			}
+		}
+	})
+
+	router.Get("/spotify/genres", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(accessToken)
+		client := http.Client{}
+		req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/top/artists", nil)
+		if err != nil {
+			log.Println("Error in Creating Request")
+			log.Println(err)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+			res, err := client.Do(req)
+			if err != nil {
+				log.Println("Error in Performing Request")
+				log.Println(err)
+			} else {
+				defer res.Body.Close()
+				body, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				} else {
+					genres := make(map[string]int)
+					var itemWrapper Items
+					json.Unmarshal(body, &itemWrapper)
+					for _, artist := range itemWrapper.Items {
+						for _, genre := range artist.Genres {
+							genres[genre] = genres[genre] + 1
+						}
+					}
+					fmt.Println(genres)
+					response, err := json.Marshal(genres)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
+						log.Println(err)
+					} else {
+						w.Write(response)
+					}
+				}
 			}
 		}
 	})
