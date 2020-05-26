@@ -6,12 +6,11 @@
         :key="n"
         >
             <v-sparkline
-            :value="genreFreq[n]"
-            :labels="labels[n]"
+            :value="genreFreq[n - 1]"
+            :labels="labels[n - 1]"
             color="#1db954"
-            :line-width="1"
-            :smooth="5"
-            :label-size="2"
+            :smooth="2.5"
+            :label-size="2.25"
             auto-draw
             ></v-sparkline>
         </v-carousel-item>
@@ -52,7 +51,7 @@ export default {
                     }
                     freqSlices.push(vals);
                     labelSlices.push(keys);
-                    this.$set(this, "carouselLength", freqSlices.length - 1)
+                    this.$set(this, "carouselLength", freqSlices.length)
                     this.$set(this, "genreFreq", freqSlices);
                     this.$set(this, "labels", labelSlices);
                 }).bind(this)
@@ -62,4 +61,7 @@ export default {
 }
 </script>
 <style>
+    #genre-carousel {
+        font-family: 'Roboto Condensed'
+    }
 </style>

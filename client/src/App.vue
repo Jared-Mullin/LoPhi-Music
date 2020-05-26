@@ -1,10 +1,8 @@
 <template>
   <v-app>
     <v-content>
-      <v-container fluid>
-        <Genres/>
-      </v-container>
       <v-container>
+        <Genres/>
         <Tracks/>
         <Artists/>
       </v-container>
