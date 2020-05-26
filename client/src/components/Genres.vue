@@ -1,15 +1,22 @@
 <template>
-    <v-container>
-        <v-sparkline
-        :value="genreFreq"
-        :labels="labels"
-        color="#1db954"
-        :line-width="1"
-        :smooth="5"
-        :label-size="2"
-        auto-draw
-        ></v-sparkline>
-    </v-container>
+<div>  
+    <v-carousel hide-delimiters id="genre-carousel">
+        <v-carousel-item
+        v-for="n in carouselLength"
+        :key="n"
+        >
+            <v-sparkline
+            :value="genreFreq[n]"
+            :labels="labels[n]"
+            color="#1db954"
+            :line-width="1"
+            :smooth="5"
+            :label-size="2"
+            auto-draw
+            ></v-sparkline>
+        </v-carousel-item>
+    </v-carousel>
+</div>
 </template>
 <script>
 import SpotifyService from '@/services/SpotifyService.js';
@@ -19,6 +26,7 @@ export default {
         return {
             genreFreq: [],
             labels: [],
+            carouselLength: 0,
         }
     },
     created() {
@@ -28,16 +36,25 @@ export default {
         async getGenreData() {
             SpotifyService.getGenres().then(
                 (genres => {
+                    let freqSlices = [];
+                    let labelSlices = [];
                     let vals = [];
                     let keys = [];
                     for(let [k, v] of Object.entries(genres)){
-                        if (v > 1) {
-                            vals.push(v);
-                            keys.push(k);
+                        vals.push(v);
+                        keys.push(k);
+                        if (vals.length == 10)  {
+                            freqSlices.push(vals);
+                            labelSlices.push(keys);
+                            vals = [];
+                            keys = [];
                         }
                     }
-                    this.$set(this, "genreFreq", vals);
-                    this.$set(this, "labels", keys);
+                    freqSlices.push(vals);
+                    labelSlices.push(keys);
+                    this.$set(this, "carouselLength", freqSlices.length - 1)
+                    this.$set(this, "genreFreq", freqSlices);
+                    this.$set(this, "labels", labelSlices);
                 }).bind(this)
             );
         }
@@ -45,7 +62,4 @@ export default {
 }
 </script>
 <style>
-    .v-container {
-        margin: 2.5%;
-    }
 </style>

@@ -1,9 +1,13 @@
 <template>
   <v-app>
     <v-content>
-      <Genres/>
-      <Tracks/>
-      <Artists/>
+      <v-container fluid>
+        <Genres/>
+      </v-container>
+      <v-container>
+        <Tracks/>
+        <Artists/>
+      </v-container>
     </v-content>
   </v-app>
 </template>
