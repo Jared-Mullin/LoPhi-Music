@@ -85,6 +85,21 @@ type Items struct {
 	Items []Artist `json:"items"`
 }
 
+type User struct {
+	DisplayName  string `json:"display_name"`
+	ExternalUrls struct {
+		Spotify string `json:"spotify"`
+	} `json:"external_urls"`
+	ID     string `json:"id"`
+	Images []struct {
+		Height interface{} `json:"height"`
+		URL    string      `json:"url"`
+		Width  interface{} `json:"width"`
+	} `json:"images"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 var (
 	accessToken  string
 	refreshToken string
@@ -129,6 +144,29 @@ func main() {
 			} else {
 				accessToken = token.AccessToken
 				refreshToken = token.RefreshToken
+				client := http.Client{}
+				req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/", nil)
+				if err != nil {
+					log.Println("Error in Creating Request")
+					log.Println(err)
+				} else {
+					req.Header.Set("Authorization", "Bearer "+accessToken)
+					res, err := client.Do(req)
+					if err != nil {
+						log.Println("Error in Performing Request")
+						log.Println(err)
+					} else {
+						defer res.Body.Close()
+						body, err := ioutil.ReadAll(res.Body)
+						if err != nil {
+							http.Error(w, err.Error(), http.StatusBadRequest)
+							log.Println(err)
+						} else {
+							var user User
+							json.Unmarshal(body, &user)
+						}
+					}
+				}
 			}
 		}
 	})
