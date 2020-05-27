@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,9 +10,13 @@ import (
 	"os"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/spotify"
 )
@@ -90,8 +95,8 @@ type User struct {
 	ExternalUrls struct {
 		Spotify string `json:"spotify"`
 	} `json:"external_urls"`
-	ID     string `json:"id"`
-	Images []struct {
+	SpotifyID string `json:"id"`
+	Images    []struct {
 		Height interface{} `json:"height"`
 		URL    string      `json:"url"`
 		Width  interface{} `json:"width"`
@@ -112,6 +117,8 @@ const (
 func main() {
 	router := chi.NewRouter()
 	spotifyConf := setupSpotifyConf()
+	mongoClient, mongoContext := createMongoClient()
+	defer mongoClient.Disconnect(mongoContext)
 
 	//Middleware Stack
 	router.Use(middleware.RequestID)
@@ -164,6 +171,26 @@ func main() {
 						} else {
 							var user User
 							json.Unmarshal(body, &user)
+							user.AccessToken = accessToken
+							user.RefreshToken = refreshToken
+							userCollection := mongoClient.Database("test").Collection("users")
+							ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+							bUser, _ := bson.Marshal(user)
+							exists, err := userCollection.CountDocuments(ctx, bson.M{"spotifyid": user.SpotifyID})
+							if err != nil {
+								log.Println("Error in Querying users Collection")
+								log.Println(err)
+							} else if exists == 1 {
+								log.Println("User Already Exists")
+							} else {
+								res, err := userCollection.InsertOne(ctx, bUser)
+								if err != nil {
+									log.Println("Error in Performing Request")
+									log.Println(err)
+								} else {
+									log.Println(res)
+								}
+							}
 						}
 					}
 				}
@@ -273,8 +300,22 @@ func setupSpotifyConf() *oauth2.Config {
 		ClientID:     cID,
 		ClientSecret: cSecret,
 		RedirectURL:  "http://localhost:4200/spotify/callback",
-		Scopes:       []string{"user-top-read"},
+		Scopes:       []string{"user-read-private", "user-read-email", "user-top-read"},
 		Endpoint:     spotify.Endpoint,
 	}
 	return conf
+}
+
+func createMongoClient() (*mongo.Client, context.Context) {
+	uri := "mongodb+srv://" + os.Getenv("DB_USERNAME") + ":" + os.Getenv("DB_PASSWORD") + "@" + os.Getenv("DB_URL") + "/test?retryWrites=true&w=majority"
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri))
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return client, ctx
 }
