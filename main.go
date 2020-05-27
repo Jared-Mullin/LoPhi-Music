@@ -277,7 +277,6 @@ func main() {
 							genres[genre] = genres[genre] + 1
 						}
 					}
-					fmt.Println(genres)
 					response, err := json.Marshal(genres)
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusBadRequest)

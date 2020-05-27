@@ -32,7 +32,8 @@ export default {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed');
   @import url('https://fonts.googleapis.com/css2?family=Roboto');
-  .v-application {
+  .v-content {
     font-family: 'Roboto Condensed', Avenir, sans-serif !important;
+    margin: 4%;
   }
 </style>

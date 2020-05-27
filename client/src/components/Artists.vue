@@ -36,10 +36,4 @@ export default {
 }
 </script>
 <style>
-    .artist-row {
-        padding: 1%;
-    }
-    .artist-card {
-        margin: 2.5%;
-    }   
 </style>
