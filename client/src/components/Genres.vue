@@ -1,16 +1,22 @@
 <template>
 <div>  
-    <v-carousel hide-delimiters id="genre-carousel">
+    <v-carousel 
+    id="genre-carousel"
+    hide-delimiters
+    height="auto"
+    width="auto">
         <v-carousel-item
         v-for="n in carouselLength"
         :key="n"
         >
             <v-sparkline
+            class="genre-graph"
             :value="genreFreq[n - 1]"
             :labels="labels[n - 1]"
             color="#1db954"
             :smooth="2.5"
-            :label-size="2.25"
+            :label-size="3"
+            padding="16"
             auto-draw
             ></v-sparkline>
         </v-carousel-item>
@@ -42,7 +48,7 @@ export default {
                     for(let [k, v] of Object.entries(genres)){
                         vals.push(v);
                         keys.push(k);
-                        if (vals.length == 10)  {
+                        if (vals.length == 5)  {
                             freqSlices.push(vals);
                             labelSlices.push(keys);
                             vals = [];
