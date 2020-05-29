@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -237,6 +239,9 @@ func main() {
 			})
 		})
 	})
+	workDir, _ := os.Getwd()
+	filesDir := http.Dir(filepath.Join(workDir, "client/dist"))
+	FileServer(r, "/", filesDir)
 
 	http.ListenAndServe(":4200", r)
 }
@@ -271,6 +276,14 @@ func createMongoClient() (*mongo.Client, context.Context) {
 		log.Fatal(err)
 	}
 	return client, ctx
+}
+
+func fileHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request) {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, entrypoint)
+	}
+
+	return http.HandlerFunc(fn)
 }
 
 func generateStateCookie(w http.ResponseWriter) string {
@@ -311,4 +324,22 @@ func spotifyRequest(accessToken string, url string) ([]byte, error) {
 	}
 	return body, err
 
+}
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit any URL parameters.")
+	}
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs.ServeHTTP(w, r)
+	})
 }
