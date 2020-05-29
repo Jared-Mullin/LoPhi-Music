@@ -22,11 +22,19 @@ export default {
         }
     },
     created() {
-        this.getArtistData()
+        this.getArtistData(this.getCookie())
     },
     methods: {
-        async getArtistData() {
-            SpotifyService.getArtists().then(
+        getCookie() {
+            const cfg = {
+                headers: {
+                    'Authorization': `Bearer ${this.$cookies.get('token')}`
+                }
+            };
+            return cfg
+        },
+        async getArtistData(cfg) {
+            SpotifyService.getArtists(cfg).then(
                 (artists => {
                     this.$set(this, "artists", artists.items)
                 }).bind(this)

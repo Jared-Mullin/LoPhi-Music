@@ -2,15 +2,21 @@ import axios from 'axios'
 
 export default {
     async getArtists() {
-        let res = await axios.get("http://localhost:4200/spotify/artists");
+        let cookie = this.$cookies.get("token")
+        const cfg = {
+            headers: {
+                'Authorization': `Bearer ${cookie}`
+            }
+        };
+        let res = await axios.get("http://localhost:4200/spotify/artists", cfg);
         return res.data;
     },
-    async getTracks() {
-        let res = await axios.get("http://localhost:4200/spotify/tracks");
+    async getTracks(cfg) {
+        let res = await axios.get("http://localhost:4200/spotify/tracks", cfg);
         return res.data;
     },
-    async getGenres() {
-        let res = await axios.get("http://localhost:4200/spotify/genres");
+    async getGenres(cfg) {
+        let res = await axios.get("http://localhost:4200/spotify/genres", cfg);
         return res.data;
     }
 }

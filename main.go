@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -98,30 +100,29 @@ type Items struct {
 }
 
 type User struct {
-	DisplayName  string `json:"display_name"`
+	ID           primitive.ObjectID `bson: "_id"`
+	DisplayName  string             `json:"display_name"`
 	ExternalUrls struct {
-		Spotify string `json:"spotify"`
-	} `json:"external_urls"`
-	SpotifyID string `json:"id"`
+		spotify string `json: "spotify" bson:"spotify"`
+	} `json:"external_urls" bson:"externalurls"`
+	SpotifyID string `json:"id" bson:"spotifyid"`
 	Images    []struct {
-		Height interface{} `json:"height"`
-		URL    string      `json:"url"`
-		Width  interface{} `json:"width"`
-	} `json:"images"`
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+		Height interface{} `json:"height" bson:"height"`
+		URL    string      `json:"url" bson:"url"`
+		Width  interface{} `json:"width" bson:"width"`
+	} `json:"images" bson:"images"`
+	AccessToken  string `json:"access_token" json:"accesstoken"`
+	RefreshToken string `json:"refresh_token" bson:"refreshtoken"`
 }
 
 var (
-	accessToken  string
-	refreshToken string
+	mongoClient, mongoContext = createMongoClient()
 )
 
 func main() {
 	r := chi.NewRouter()
 	spotifyConf := setupSpotifyConf()
 	tokenAuth := setupJWTAuth()
-	mongoClient, mongoContext := createMongoClient()
 	defer mongoClient.Disconnect(mongoContext)
 
 	r.Use(middleware.Logger)
@@ -132,7 +133,7 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
@@ -201,6 +202,9 @@ func main() {
 			spotifyRouter.Use(jwtauth.Authenticator)
 
 			spotifyRouter.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
+				_, claims, _ := jwtauth.FromContext(r.Context())
+				id := claims["id"].(string)
+				accessToken, err := getAccessToken(id)
 				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
@@ -210,6 +214,9 @@ func main() {
 			})
 
 			spotifyRouter.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
+				_, claims, _ := jwtauth.FromContext(r.Context())
+				id := claims["id"].(string)
+				accessToken, err := getAccessToken(id)
 				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/tracks")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
@@ -220,6 +227,9 @@ func main() {
 			})
 
 			spotifyRouter.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
+				_, claims, _ := jwtauth.FromContext(r.Context())
+				id := claims["id"].(string)
+				accessToken, err := getAccessToken(id)
 				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
 				genres := make(map[string]int)
 				var itemWrapper Items
@@ -241,7 +251,7 @@ func main() {
 	})
 	workDir, _ := os.Getwd()
 	filesDir := http.Dir(filepath.Join(workDir, "client/dist"))
-	FileServer(r, "/", filesDir)
+	fileServer(r, "/", filesDir)
 
 	http.ListenAndServe(":4200", r)
 }
@@ -325,7 +335,7 @@ func spotifyRequest(accessToken string, url string) ([]byte, error) {
 	return body, err
 
 }
-func FileServer(r chi.Router, path string, root http.FileSystem) {
+func fileServer(r chi.Router, path string, root http.FileSystem) {
 	if strings.ContainsAny(path, "{}*") {
 		panic("FileServer does not permit any URL parameters.")
 	}
@@ -342,4 +352,18 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
+}
+
+func getAccessToken(usrID string) (string, error) {
+	userCollection := mongoClient.Database("test").Collection("users")
+	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	res := userCollection.FindOne(ctx, bson.M{"_id": usrID})
+	if res != nil {
+		var user User
+		res.Decode(user)
+		fmt.Println(user)
+		return user.AccessToken, nil
+	} else {
+		return "", errors.New("Error Finding User")
+	}
 }

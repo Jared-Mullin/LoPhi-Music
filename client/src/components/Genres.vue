@@ -35,11 +35,16 @@ export default {
         }
     },
     created() {
-        this.getGenreData()
+        const cfg = {
+            headers: {
+                'Authorization': `Bearer ${this.$cookies.get('token')}`
+            }
+        };
+        this.getGenreData(cfg)
     },
     methods: {
-        async getGenreData() {
-            SpotifyService.getGenres().then(
+        async getGenreData(cfg) {
+            SpotifyService.getGenres(cfg).then(
                 (genres => {
                     let freqSlices = [];
                     let labelSlices = [];

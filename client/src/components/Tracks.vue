@@ -22,11 +22,16 @@ export default {
         }
     },
     created() {
-        this.getTrackData()
+        const cfg = {
+            headers: {
+                'Authorization': `Bearer ${this.$cookies.get('token')}`
+            }
+        };
+        this.getTrackData(cfg)
     },
     methods: {
-        async getTrackData() {
-            SpotifyService.getTracks().then(
+        async getTrackData(cfg) {
+            SpotifyService.getTracks(cfg).then(
                 (tracks => {
                     this.$set(this, "tracks", tracks.items)
                 }).bind(this)
