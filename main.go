@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -110,24 +111,16 @@ var (
 	refreshToken string
 )
 
-const (
-	state = "state"
-)
-
 func main() {
-	router := chi.NewRouter()
+	r := chi.NewRouter()
 	spotifyConf := setupSpotifyConf()
 	mongoClient, mongoContext := createMongoClient()
 	defer mongoClient.Disconnect(mongoContext)
 
-	//Middleware Stack
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Logger)
 
-	router.Use(cors.Handler(cors.Options{
+	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
@@ -136,35 +129,28 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	router.Get("/spotify/auth", func(w http.ResponseWriter, r *http.Request) {
-		url := spotifyConf.AuthCodeURL(state)
-		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-	})
+	r.Route("/spotify", func(router chi.Router) {
+		router.Get("/auth", func(w http.ResponseWriter, req *http.Request) {
+			state := generateStateCookie(w)
+			url := spotifyConf.AuthCodeURL(state)
+			http.Redirect(w, req, url, http.StatusTemporaryRedirect)
+		})
 
-	router.Get("/spotify/callback", func(w http.ResponseWriter, r *http.Request) {
-		if r.FormValue("state") != state {
-			log.Println("Invalid OAuth2 State")
-		} else {
-			token, err := spotifyConf.Exchange(oauth2.NoContext, r.FormValue("code"))
+		router.Get("/callback", func(w http.ResponseWriter, req *http.Request) {
+			state, err := req.Cookie("oauthstate")
 			if err != nil {
 				log.Println(err)
 			} else {
-				accessToken = token.AccessToken
-				refreshToken = token.RefreshToken
-				client := http.Client{}
-				req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/", nil)
-				if err != nil {
-					log.Println("Error in Creating Request")
-					log.Println(err)
+				if req.FormValue("state") != state.Value {
+					log.Println("Invalid OAuth2 State")
 				} else {
-					req.Header.Set("Authorization", "Bearer "+accessToken)
-					res, err := client.Do(req)
+					token, err := spotifyConf.Exchange(oauth2.NoContext, req.FormValue("code"))
 					if err != nil {
-						log.Println("Error in Performing Request")
 						log.Println(err)
 					} else {
-						defer res.Body.Close()
-						body, err := ioutil.ReadAll(res.Body)
+						accessToken = token.AccessToken
+						refreshToken = token.RefreshToken
+						body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/")
 						if err != nil {
 							http.Error(w, err.Error(), http.StatusBadRequest)
 							log.Println(err)
@@ -195,101 +181,48 @@ func main() {
 					}
 				}
 			}
-		}
-	})
+		})
 
-	router.Get("/spotify/artists", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(accessToken)
-		client := http.Client{}
-		req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/top/artists", nil)
-		if err != nil {
-			log.Println("Error in Creating Request")
-			log.Println(err)
-		} else {
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-			res, err := client.Do(req)
+		router.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
+			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
 			if err != nil {
-				log.Println("Error in Performing Request")
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				log.Println(err)
+			}
+			w.Write(body)
+		})
+
+		router.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
+			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/tracks")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				log.Println(err)
 			} else {
-				defer res.Body.Close()
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					log.Println(err)
-				}
 				w.Write(body)
 			}
-		}
-	})
+		})
 
-	router.Get("/spotify/tracks", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(accessToken)
-		client := http.Client{}
-		req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/top/tracks", nil)
-		if err != nil {
-			log.Println("Error in Creating Request")
-			log.Println(err)
-		} else {
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-			res, err := client.Do(req)
-			if err != nil {
-				log.Println("Error in Performing Request")
-				log.Println(err)
-			} else {
-				defer res.Body.Close()
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					log.Println(err)
-				} else {
-					w.Write(body)
+		router.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
+			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
+			genres := make(map[string]int)
+			var itemWrapper Items
+			json.Unmarshal(body, &itemWrapper)
+			for _, artist := range itemWrapper.Items {
+				for _, genre := range artist.Genres {
+					genres[genre] = genres[genre] + 1
 				}
 			}
-		}
-	})
-
-	router.Get("/spotify/genres", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(accessToken)
-		client := http.Client{}
-		req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/top/artists", nil)
-		if err != nil {
-			log.Println("Error in Creating Request")
-			log.Println(err)
-		} else {
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-			res, err := client.Do(req)
+			response, err := json.Marshal(genres)
 			if err != nil {
-				log.Println("Error in Performing Request")
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				log.Println(err)
 			} else {
-				defer res.Body.Close()
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					log.Println(err)
-				} else {
-					genres := make(map[string]int)
-					var itemWrapper Items
-					json.Unmarshal(body, &itemWrapper)
-					for _, artist := range itemWrapper.Items {
-						for _, genre := range artist.Genres {
-							genres[genre] = genres[genre] + 1
-						}
-					}
-					response, err := json.Marshal(genres)
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusBadRequest)
-						log.Println(err)
-					} else {
-						w.Write(response)
-					}
-				}
+				w.Write(response)
 			}
-		}
+		})
 	})
 
-	http.ListenAndServe(":4200", router)
+	http.ListenAndServe(":4200", r)
 }
 
 func setupSpotifyConf() *oauth2.Config {
@@ -317,4 +250,44 @@ func createMongoClient() (*mongo.Client, context.Context) {
 		log.Fatal(err)
 	}
 	return client, ctx
+}
+
+func generateStateCookie(w http.ResponseWriter) string {
+	expiry := time.Now().Add(365 * 24 * time.Hour)
+	b := make([]byte, 16)
+	rand.Read(b)
+	state := base64.URLEncoding.EncodeToString(b)
+	cookie := http.Cookie{Name: "oauthstate", Value: state, Expires: expiry}
+	http.SetCookie(w, &cookie)
+	return state
+}
+
+func spotifyRequest(accessToken string, url string) ([]byte, error) {
+	client := http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Println("Error in Creating Request")
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println("Error in Performing Request")
+		return nil, err
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if res.StatusCode == 400 {
+		log.Println("Bad Request Syntax")
+		return body, err
+	}
+	if res.StatusCode == 401 {
+		log.Println("Unauthorized Request")
+		return body, err
+	}
+	if err != nil {
+		return body, err
+	}
+	return body, err
+
 }
