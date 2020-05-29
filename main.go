@@ -11,13 +11,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/jwtauth"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/oauth2"
@@ -108,11 +110,6 @@ type User struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-type Claims struct {
-	ID string
-	jwt.StandardClaims
-}
-
 var (
 	accessToken  string
 	refreshToken string
@@ -121,12 +118,13 @@ var (
 func main() {
 	r := chi.NewRouter()
 	spotifyConf := setupSpotifyConf()
+	tokenAuth := setupJWTAuth()
 	mongoClient, mongoContext := createMongoClient()
 	defer mongoClient.Disconnect(mongoContext)
 
 	r.Use(middleware.Logger)
-
 	r.Use(middleware.Timeout(60 * time.Second))
+
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -155,8 +153,8 @@ func main() {
 					if err != nil {
 						log.Println(err)
 					} else {
-						accessToken = token.AccessToken
-						refreshToken = token.RefreshToken
+						accessToken := token.AccessToken
+						refreshToken := token.RefreshToken
 						body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/")
 						if err != nil {
 							http.Error(w, err.Error(), http.StatusBadRequest)
@@ -183,11 +181,11 @@ func main() {
 								} else {
 									expiry := time.Now().Add(3 * 24 * time.Hour)
 									oID := res.InsertedID.(primitive.ObjectID).String()
-									token, err := createJWT(oID, expiry.Unix())
+									_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": oID})
 									if err != nil {
-										log.Println("Error Creating JWT")
+										log.Println("Error Creating Token")
 									}
-									http.SetCookie(w, &http.Cookie{Name: "token", Value: token, Expires: expiry})
+									http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Expires: expiry})
 								}
 							}
 						}
@@ -196,42 +194,47 @@ func main() {
 			}
 		})
 
-		router.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
-			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				log.Println(err)
-			}
-			w.Write(body)
-		})
+		router.Group(func(spotifyRouter chi.Router) {
+			spotifyRouter.Use(jwtauth.Verifier(tokenAuth))
+			spotifyRouter.Use(jwtauth.Authenticator)
 
-		router.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
-			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/tracks")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				log.Println(err)
-			} else {
-				w.Write(body)
-			}
-		})
-
-		router.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
-			body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
-			genres := make(map[string]int)
-			var itemWrapper Items
-			json.Unmarshal(body, &itemWrapper)
-			for _, artist := range itemWrapper.Items {
-				for _, genre := range artist.Genres {
-					genres[genre] = genres[genre] + 1
+			spotifyRouter.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
+				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
 				}
-			}
-			response, err := json.Marshal(genres)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				log.Println(err)
-			} else {
-				w.Write(response)
-			}
+				w.Write(body)
+			})
+
+			spotifyRouter.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
+				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/tracks")
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				} else {
+					w.Write(body)
+				}
+			})
+
+			spotifyRouter.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
+				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
+				genres := make(map[string]int)
+				var itemWrapper Items
+				json.Unmarshal(body, &itemWrapper)
+				for _, artist := range itemWrapper.Items {
+					for _, genre := range artist.Genres {
+						genres[genre] = genres[genre] + 1
+					}
+				}
+				response, err := json.Marshal(genres)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				} else {
+					w.Write(response)
+				}
+			})
 		})
 	})
 
@@ -249,6 +252,11 @@ func setupSpotifyConf() *oauth2.Config {
 		Endpoint:     spotify.Endpoint,
 	}
 	return conf
+}
+
+func setupJWTAuth() *jwtauth.JWTAuth {
+	auth := jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")), nil)
+	return auth
 }
 
 func createMongoClient() (*mongo.Client, context.Context) {
@@ -303,16 +311,4 @@ func spotifyRequest(accessToken string, url string) ([]byte, error) {
 	}
 	return body, err
 
-}
-
-func createJWT(oID string, expiry int64) (string, error) {
-	claims := &Claims{
-		ID: oID,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expiry,
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	return tokenString, err
 }
