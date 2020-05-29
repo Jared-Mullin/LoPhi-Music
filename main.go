@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
@@ -106,6 +108,11 @@ type User struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type Claims struct {
+	ID string
+	jwt.StandardClaims
+}
+
 var (
 	accessToken  string
 	refreshToken string
@@ -174,7 +181,13 @@ func main() {
 									log.Println("Error in Performing Request")
 									log.Println(err)
 								} else {
-									log.Println(res)
+									expiry := time.Now().Add(3 * 24 * time.Hour)
+									oID := res.InsertedID.(primitive.ObjectID).String()
+									token, err := createJWT(oID, expiry.Unix())
+									if err != nil {
+										log.Println("Error Creating JWT")
+									}
+									http.SetCookie(w, &http.Cookie{Name: "token", Value: token, Expires: expiry})
 								}
 							}
 						}
@@ -290,4 +303,16 @@ func spotifyRequest(accessToken string, url string) ([]byte, error) {
 	}
 	return body, err
 
+}
+
+func createJWT(oID string, expiry int64) (string, error) {
+	claims := &Claims{
+		ID: oID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expiry,
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	return tokenString, err
 }
