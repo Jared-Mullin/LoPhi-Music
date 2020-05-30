@@ -33,7 +33,7 @@ export default {
                     'Authorization': 'Bearer ' + token,
                 },
             }
-            axios.get('http://localhost:4200/spotify/tracks', config).then(
+            axios.get('https://lophi.dev/spotify/tracks', config).then(
                 (tracks => {
                     tracks = tracks.data;
                     this.$set(this, "tracks", tracks.items);

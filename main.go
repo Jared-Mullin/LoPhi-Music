@@ -101,13 +101,13 @@ type Items struct {
 type User struct {
 	DisplayName  string `json:"display_name"`
 	ExternalUrls struct {
-		spotify string `json: "spotify" bson:"spotify"`
+		Spotify string `json:"spotify" bson:"spotify"`
 	} `json:"external_urls" bson:"externalurls"`
 	SpotifyID string `json:"id" bson:"spotifyid"`
 	Images    []struct {
-		Height interface{} `json:"height" bson:"height"`
-		URL    string      `json:"url" bson:"url"`
-		Width  interface{} `json:"width" bson:"width"`
+		Height int    `json:"height" bson:"height"`
+		URL    string `json:"url" bson:"url"`
+		Width  int    `json:"width" bson:"width"`
 	} `json:"images" bson:"images"`
 	AccessToken  string `json:"access_token" bson:"accesstoken"`
 	RefreshToken string `json:"refresh_token" bson:"refreshtoken"`
@@ -131,7 +131,7 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
@@ -250,7 +250,7 @@ func main() {
 	filesDir := http.Dir(filepath.Join(workDir, "client/dist"))
 	fileServer(r, "/", filesDir)
 
-	http.ListenAndServe(":4200", r)
+	http.ListenAndServe(":8080", r)
 }
 
 func setupSpotifyConf() *oauth2.Config {

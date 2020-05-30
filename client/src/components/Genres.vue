@@ -46,7 +46,7 @@ export default {
                     'Authorization': 'Bearer ' + token,
                 },
             }
-            axios.get('http://localhost:4200/spotify/genres', config).then(
+            axios.get('https://lophi.dev/spotify/genres', config).then(
                 (genres => {
                     genres = genres.data;
                     let freqSlices = [];
