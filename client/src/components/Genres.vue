@@ -13,9 +13,9 @@
             class="genre-graph"
             :value="genreFreq[n - 1]"
             :labels="labels[n - 1]"
-            color="#1db954"
+            color="#2bde6a"
             :smooth="2.5"
-            :label-size="3"
+            :label-size="3.5"
             padding="16"
             auto-draw
             ></v-sparkline>
