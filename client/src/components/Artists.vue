@@ -13,6 +13,7 @@
     </div>
 </template>
 <script>
+import Cookies from 'js-cookie';
 import axios from 'axios';
 
 export default {
@@ -27,11 +28,11 @@ export default {
     },
     methods: {
         async getArtistData() {
-            let token = localStorage.getItem('token');
+            let token = Cookies.get('token');
             let config = {
                 headers: {
-                    'Authorization': 'Bearer ' + token,
-                },
+                    Authorization: "Bearer " + token
+                }
             }
             axios.get('https://lophi.dev/spotify/artists', config).then(
                 (artists => {

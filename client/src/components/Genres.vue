@@ -25,6 +25,7 @@
 </template>
 <script>
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 export default {
     name: 'Genres',
@@ -40,11 +41,11 @@ export default {
     },
     methods: {
         async getGenreData() {
-            let token = localStorage.getItem('token');
+            let token = Cookies.get('token');
             let config = {
                 headers: {
-                    'Authorization': 'Bearer ' + token,
-                },
+                    Authorization: "Bearer " + token
+                }
             }
             axios.get('https://lophi.dev/spotify/genres', config).then(
                 (genres => {

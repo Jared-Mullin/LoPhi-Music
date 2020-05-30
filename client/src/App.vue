@@ -27,6 +27,9 @@ export default {
   data: () => ({
 
   }),
+  created: function() {
+    this.$cookies.set("test", "I Am Here!")
+  }
 };
 </script>
 <style>

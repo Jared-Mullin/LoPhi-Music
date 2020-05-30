@@ -185,7 +185,7 @@ func main() {
 									if err != nil {
 										log.Println("Error Creating Token")
 									}
-									http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Expires: expiry})
+									http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
 								}
 							}
 						}
@@ -259,7 +259,7 @@ func setupSpotifyConf() *oauth2.Config {
 	conf := &oauth2.Config{
 		ClientID:     cID,
 		ClientSecret: cSecret,
-		RedirectURL:  "http://localhost:4200/spotify/callback",
+		RedirectURL:  "https://lophi.dev/spotify/callback",
 		Scopes:       []string{"user-read-private", "user-read-email", "user-top-read"},
 		Endpoint:     spotify.Endpoint,
 	}
