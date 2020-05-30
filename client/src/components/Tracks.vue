@@ -13,7 +13,8 @@
     </div>
 </template>
 <script>
-import SpotifyService from '@/services/SpotifyService.js';
+import axios from 'axios';
+
 export default {
     name: 'Tracks',
     data() {
@@ -22,18 +23,20 @@ export default {
         }
     },
     created() {
-        const cfg = {
-            headers: {
-                'Authorization': `Bearer ${this.$cookies.get('token')}`
-            }
-        };
-        this.getTrackData(cfg)
+        this.getTrackData()
     },
     methods: {
-        async getTrackData(cfg) {
-            SpotifyService.getTracks(cfg).then(
+        async getTrackData() {
+            let token = localStorage.getItem('token');
+            let config = {
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                },
+            }
+            axios.get('http://localhost:4200/spotify/tracks', config).then(
                 (tracks => {
-                    this.$set(this, "tracks", tracks.items)
+                    tracks = tracks.data;
+                    this.$set(this, "tracks", tracks.items);
                 }).bind(this)
             );
         }

@@ -24,7 +24,8 @@
 </div>
 </template>
 <script>
-import SpotifyService from '@/services/SpotifyService.js';
+import axios from 'axios';
+
 export default {
     name: 'Genres',
     data() {
@@ -35,17 +36,19 @@ export default {
         }
     },
     created() {
-        const cfg = {
-            headers: {
-                'Authorization': `Bearer ${this.$cookies.get('token')}`
-            }
-        };
-        this.getGenreData(cfg)
+        this.getGenreData()
     },
     methods: {
-        async getGenreData(cfg) {
-            SpotifyService.getGenres(cfg).then(
+        async getGenreData() {
+            let token = localStorage.getItem('token');
+            let config = {
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                },
+            }
+            axios.get('http://localhost:4200/spotify/genres', config).then(
                 (genres => {
+                    genres = genres.data;
                     let freqSlices = [];
                     let labelSlices = [];
                     let vals = [];

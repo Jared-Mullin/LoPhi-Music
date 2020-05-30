@@ -18,7 +18,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -100,8 +99,7 @@ type Items struct {
 }
 
 type User struct {
-	ID           primitive.ObjectID `bson: "_id"`
-	DisplayName  string             `json:"display_name"`
+	DisplayName  string `json:"display_name"`
 	ExternalUrls struct {
 		spotify string `json: "spotify" bson:"spotify"`
 	} `json:"external_urls" bson:"externalurls"`
@@ -111,7 +109,7 @@ type User struct {
 		URL    string      `json:"url" bson:"url"`
 		Width  interface{} `json:"width" bson:"width"`
 	} `json:"images" bson:"images"`
-	AccessToken  string `json:"access_token" json:"accesstoken"`
+	AccessToken  string `json:"access_token" bson:"accesstoken"`
 	RefreshToken string `json:"refresh_token" bson:"refreshtoken"`
 }
 
@@ -177,14 +175,13 @@ func main() {
 							} else if exists == 1 {
 								log.Println("User Already Exists")
 							} else {
-								res, err := userCollection.InsertOne(ctx, bUser)
+								_, err := userCollection.InsertOne(ctx, bUser)
 								if err != nil {
 									log.Println("Error in Performing Request")
 									log.Println(err)
 								} else {
 									expiry := time.Now().Add(3 * 24 * time.Hour)
-									oID := res.InsertedID.(primitive.ObjectID).String()
-									_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": oID})
+									_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": user.SpotifyID})
 									if err != nil {
 										log.Println("Error Creating Token")
 									}
@@ -323,10 +320,12 @@ func spotifyRequest(accessToken string, url string) ([]byte, error) {
 	body, err := ioutil.ReadAll(res.Body)
 	if res.StatusCode == 400 {
 		log.Println("Bad Request Syntax")
+		log.Println(string(body))
 		return body, err
 	}
 	if res.StatusCode == 401 {
 		log.Println("Unauthorized Request")
+		log.Println(string(body))
 		return body, err
 	}
 	if err != nil {
@@ -357,13 +356,14 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 func getAccessToken(usrID string) (string, error) {
 	userCollection := mongoClient.Database("test").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
-	res := userCollection.FindOne(ctx, bson.M{"_id": usrID})
+	res := userCollection.FindOne(ctx, bson.M{"spotifyid": usrID})
 	if res != nil {
 		var user User
-		res.Decode(user)
-		fmt.Println(user)
+		err := res.Decode(&user)
+		if err != nil {
+			fmt.Println(err)
+		}
 		return user.AccessToken, nil
-	} else {
-		return "", errors.New("Error Finding User")
 	}
+	return "", errors.New("Error Finding User")
 }
