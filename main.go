@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -109,21 +108,26 @@ type User struct {
 		URL    string `json:"url" bson:"url"`
 		Width  int    `json:"width" bson:"width"`
 	} `json:"images" bson:"images"`
-	AccessToken  string `json:"access_token" bson:"accesstoken"`
-	RefreshToken string `json:"refresh_token" bson:"refreshtoken"`
+	AccessToken  string    `json:"access_token" bson:"accesstoken"`
+	RefreshToken string    `json:"refresh_token" bson:"refreshtoken"`
+	TokenExpiry  time.Time `bson:"tokenexpiry"`
+	TokenType    string    `bson:"tokentype"`
 }
 
 var (
 	mongoClient, mongoContext = createMongoClient()
+	spotifyConf               = setupSpotifyConf()
 )
 
 func main() {
 	r := chi.NewRouter()
-	spotifyConf := setupSpotifyConf()
 	tokenAuth := setupJWTAuth()
 	defer mongoClient.Disconnect(mongoContext)
 
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Use(cors.Handler(cors.Options{
@@ -154,17 +158,17 @@ func main() {
 					if err != nil {
 						log.Println(err)
 					} else {
-						accessToken := token.AccessToken
-						refreshToken := token.RefreshToken
-						body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/")
+						body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/")
 						if err != nil {
 							http.Error(w, err.Error(), http.StatusBadRequest)
 							log.Println(err)
 						} else {
 							var user User
 							json.Unmarshal(body, &user)
-							user.AccessToken = accessToken
-							user.RefreshToken = refreshToken
+							user.AccessToken = token.AccessToken
+							user.RefreshToken = token.RefreshToken
+							user.TokenExpiry = token.Expiry
+							user.TokenType = token.TokenType
 							userCollection := mongoClient.Database("test").Collection("users")
 							ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
 							bUser, _ := bson.Marshal(user)
@@ -201,8 +205,12 @@ func main() {
 			spotifyRouter.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
-				accessToken, err := getAccessToken(id)
-				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
+				token, err := getToken(id)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				}
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
@@ -213,8 +221,12 @@ func main() {
 			spotifyRouter.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
-				accessToken, err := getAccessToken(id)
-				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/tracks")
+				token, err := getToken(id)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				}
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/tracks")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
@@ -226,8 +238,12 @@ func main() {
 			spotifyRouter.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
-				accessToken, err := getAccessToken(id)
-				body, err := spotifyRequest(accessToken, "https://api.spotify.com/v1/me/top/artists")
+				token, err := getToken(id)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					log.Println(err)
+				}
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists")
 				genres := make(map[string]int)
 				var itemWrapper Items
 				json.Unmarshal(body, &itemWrapper)
@@ -303,14 +319,13 @@ func generateStateCookie(w http.ResponseWriter) string {
 	return state
 }
 
-func spotifyRequest(accessToken string, url string) ([]byte, error) {
-	client := http.Client{}
+func spotifyRequest(token *oauth2.Token, url string) ([]byte, error) {
+	client := spotifyConf.Client(oauth2.NoContext, token)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Println("Error in Creating Request")
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println("Error in Performing Request")
@@ -353,17 +368,24 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 	})
 }
 
-func getAccessToken(usrID string) (string, error) {
+func getToken(usrID string) (*oauth2.Token, error) {
 	userCollection := mongoClient.Database("test").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
 	res := userCollection.FindOne(ctx, bson.M{"spotifyid": usrID})
 	if res != nil {
+		token := new(oauth2.Token)
 		var user User
 		err := res.Decode(&user)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
+			return token, err
 		}
-		return user.AccessToken, nil
+		token.AccessToken = user.AccessToken
+		token.RefreshToken = user.RefreshToken
+		token.Expiry = user.TokenExpiry
+		token.TokenType = user.TokenType
+		return token, err
+	} else {
+		return nil, errors.New("User Not Found")
 	}
-	return "", errors.New("Error Finding User")
 }
