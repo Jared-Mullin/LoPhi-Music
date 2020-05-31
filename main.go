@@ -28,7 +28,7 @@ import (
 	"golang.org/x/oauth2/spotify"
 )
 
-// Artist Spotify Response Structure
+// Artist Spotify JSON Response
 type Artist struct {
 	ExternalUrls struct {
 		Spotify string `json:"spotify"`
@@ -47,6 +47,7 @@ type Artist struct {
 	URI        string `json:"uri"`
 }
 
+//Album Spotify JSON Response
 type Album struct {
 	AlbumType        string   `json:"album_type"`
 	Artists          []Artist `json:"artists"`
@@ -69,6 +70,7 @@ type Album struct {
 	URI                  string `json:"uri"`
 }
 
+//Track Spotify JSON Response
 type Track struct {
 	Album            Album    `json:"album"`
 	Artists          []Artist `json:"artists"`
@@ -92,11 +94,14 @@ type Track struct {
 	Type        string `json:"type"`
 	URI         string `json:"uri"`
 }
+
+//Items is a Spotify Artist JSON Response Wrapper
 type Items struct {
 	Href  string   `json:"href"`
 	Items []Artist `json:"items"`
 }
 
+//User Mongo Struct
 type User struct {
 	DisplayName  string `json:"display_name"`
 	ExternalUrls struct {
@@ -385,7 +390,6 @@ func getToken(usrID string) (*oauth2.Token, error) {
 		token.Expiry = user.TokenExpiry
 		token.TokenType = user.TokenType
 		return token, err
-	} else {
-		return nil, errors.New("User Not Found")
 	}
+	return nil, errors.New("User Not Found")
 }
