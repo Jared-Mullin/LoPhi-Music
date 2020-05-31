@@ -1,16 +1,18 @@
 <template>
   <v-app>
-    <v-content>
       <v-app-bar
-          color="#212121"
+          app=true
           dark
+          color="#212121"
       >
         <v-toolbar-title id="home-link" class="nav-link">LoPhi</v-toolbar-title>
         <v-spacer></v-spacer>
+        <a class="nav-link" href="/spotify/auth">Sign-In</a>
         <router-link class="nav-link" to="/tracks">Tracks</router-link>
         <router-link class="nav-link" to="/artists">Artists</router-link>
         <router-link class="nav-link" to="/genres">Genres</router-link>
       </v-app-bar>
+    <v-content>
       <v-container>
         <router-view></router-view>
       </v-container>

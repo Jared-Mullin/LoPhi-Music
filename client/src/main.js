@@ -11,9 +11,9 @@ Vue.config.productionTip = false
 
 Vue.use(VueRouter);
 const routes = [
-  { path: '/tracks', component: Tracks },
-  { path: '/artists', component: Artists },
-  { path: '/genres', component: Genres },
+  { path: '/tracks', component: Tracks, meta: {title: "Tracks"} },
+  { path: '/artists', component: Artists, meta: {title: "Artists"} },
+  { path: '/genres', component: Genres, meta: {title: "Genres"}},
 ]
 const router = new VueRouter({
   routes
