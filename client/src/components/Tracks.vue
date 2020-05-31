@@ -28,8 +28,7 @@ export default {
     },
     methods: {
         async getTrackData() {
-            let token = Cookies.get();
-            console.log(token);
+            let token = Cookies.get("token");
             let config = {
                 headers: {
                     Authorization: "Bearer " + token
