@@ -181,25 +181,24 @@ func main() {
 							if err != nil {
 								log.Println("Error in Querying users Collection")
 								log.Println(err)
-							} else if exists == 1 {
-								log.Println("User Already Exists")
-							} else {
+							} else if exists == 0 {
 								_, err := userCollection.InsertOne(ctx, bUser)
 								if err != nil {
 									log.Println("Error in Performing Request")
 									log.Println(err)
-								} else {
-									expiry := time.Now().Add(3 * 24 * time.Hour)
-									_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": user.SpotifyID})
-									if err != nil {
-										log.Println("Error Creating Token")
-									}
-									http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
+									return
 								}
 							}
+							expiry := time.Now().Add(3 * 24 * time.Hour)
+							_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": user.SpotifyID})
+							if err != nil {
+								log.Println("Error Creating Token")
+							}
+							http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
 						}
 					}
 				}
+
 			}
 		})
 
