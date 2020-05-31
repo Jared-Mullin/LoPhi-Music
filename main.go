@@ -122,11 +122,11 @@ type User struct {
 var (
 	mongoClient, mongoContext = createMongoClient()
 	spotifyConf               = setupSpotifyConf()
+	tokenAuth                 = setupJWTAuth()
 )
 
 func main() {
 	r := chi.NewRouter()
-	tokenAuth := setupJWTAuth()
 	defer mongoClient.Disconnect(mongoContext)
 
 	r.Use(middleware.RequestID)
@@ -195,6 +195,7 @@ func main() {
 								log.Println("Error Creating Token")
 							}
 							http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
+							http.Redirect(w, req, "https://lophi.dev/#/tracks", http.StatusTemporaryRedirect)
 						}
 					}
 				}

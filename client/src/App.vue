@@ -7,7 +7,7 @@
       >
         <v-toolbar-title id="home-link" class="nav-link">LoPhi</v-toolbar-title>
         <v-spacer></v-spacer>
-        <a class="nav-link" href="/spotify/auth">Sign-In</a>
+        <a class="nav-link" href="/spotify/auth">Sign In</a>
         <router-link class="nav-link" to="/tracks">Tracks</router-link>
         <router-link class="nav-link" to="/artists">Artists</router-link>
         <router-link class="nav-link" to="/genres">Genres</router-link>
