@@ -228,12 +228,13 @@ func main() {
 			spotifyRouter.Get("/tracks", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
+				queryParams := r.URL.Query()
 				token, err := getToken(id)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
 				}
-				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/tracks")
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/tracks", queryParams)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
@@ -245,12 +246,13 @@ func main() {
 			spotifyRouter.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
+				queryParams := r.URL.Query()
 				token, err := getToken(id)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
 				}
-				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists")
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists", queryParams)
 				genres := make(map[string]int)
 				var itemWrapper Items
 				json.Unmarshal(body, &itemWrapper)
