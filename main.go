@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,12 +211,13 @@ func main() {
 			spotifyRouter.Get("/artists", func(w http.ResponseWriter, r *http.Request) {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				id := claims["id"].(string)
+				queryParams := r.URL.Query()
 				token, err := getToken(id)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
 				}
-				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists")
+				body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/top/artists", queryParams)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					log.Println(err)
@@ -324,13 +326,18 @@ func generateStateCookie(w http.ResponseWriter) string {
 	return state
 }
 
-func spotifyRequest(token *oauth2.Token, url string) ([]byte, error) {
+func spotifyRequest(token *oauth2.Token, url string, queryParams url.Values) ([]byte, error) {
 	client := spotifyConf.Client(oauth2.NoContext, token)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Println("Error in Creating Request")
 		return nil, err
 	}
+	newParams := req.URL.Query()
+	for k, v := range queryParams {
+		newParams.Add(k, v[0])
+	}
+	req.URL.RawQuery = newParams.Encode()
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println("Error in Performing Request")
