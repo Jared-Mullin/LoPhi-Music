@@ -164,7 +164,7 @@ func main() {
 					if err != nil {
 						log.Println(err)
 					} else {
-						queryParams := r.URL.Query()
+						queryParams := req.URL.Query()
 						body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/", queryParams)
 						if err != nil {
 							http.Error(w, err.Error(), http.StatusBadRequest)
