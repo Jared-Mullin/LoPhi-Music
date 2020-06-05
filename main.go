@@ -15,10 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
-
 	"go.mongodb.org/mongo-driver/bson"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
@@ -122,11 +121,16 @@ type User struct {
 
 var (
 	mongoClient, mongoContext = createMongoClient()
-	spotifyConf               = setupSpotifyConf()
+	SpotifyConf               = setupSpotifyConf()
 	tokenAuth                 = setupJWTAuth()
 )
 
 func main() {
+	http.ListenAndServe(":8080", LoPhiRouter())
+}
+
+// LoPhiRouter is handles user routes
+func LoPhiRouter() http.Handler {
 	r := chi.NewRouter()
 	defer mongoClient.Disconnect(mongoContext)
 
@@ -148,7 +152,7 @@ func main() {
 	r.Route("/spotify", func(router chi.Router) {
 		router.Get("/auth", func(w http.ResponseWriter, req *http.Request) {
 			state := generateStateCookie(w)
-			url := spotifyConf.AuthCodeURL(state)
+			url := SpotifyConf.AuthCodeURL(state)
 			http.Redirect(w, req, url, http.StatusTemporaryRedirect)
 		})
 
@@ -160,7 +164,7 @@ func main() {
 				if req.FormValue("state") != state.Value {
 					log.Println("Invalid OAuth2 State")
 				} else {
-					token, err := spotifyConf.Exchange(oauth2.NoContext, req.FormValue("code"))
+					token, err := SpotifyConf.Exchange(oauth2.NoContext, req.FormValue("code"))
 					if err != nil {
 						log.Println(err)
 					} else {
@@ -276,7 +280,7 @@ func main() {
 	filesDir := http.Dir(filepath.Join(workDir, "client/dist"))
 	fileServer(r, "/", filesDir)
 
-	http.ListenAndServe(":8080", r)
+	return r
 }
 
 func setupSpotifyConf() *oauth2.Config {
@@ -330,7 +334,7 @@ func generateStateCookie(w http.ResponseWriter) string {
 }
 
 func spotifyRequest(token *oauth2.Token, url string, queryParams url.Values) ([]byte, error) {
-	client := spotifyConf.Client(oauth2.NoContext, token)
+	client := SpotifyConf.Client(oauth2.NoContext, token)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Println("Error in Creating Request")
