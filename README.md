@@ -2,7 +2,7 @@
 
 LoPhi is a web application built using Go and Vue.js which aims to beautifully display a user's Spotify information.
 
-![Go](https://github.com/Jared-Mullin/LoPhi-Music/workflows/Go/badge.svg)
+[![Build Status](https://travis-ci.com/Jared-Mullin/LoPhi-Music.svg?branch=master)](https://travis-ci.com/Jared-Mullin/LoPhi-Music)
 
 ## Installation
 
