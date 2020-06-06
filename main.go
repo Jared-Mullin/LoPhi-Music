@@ -160,53 +160,55 @@ func LoPhiRouter() http.Handler {
 			state, err := req.Cookie("oauthstate")
 			if err != nil {
 				log.Println(err)
-			} else {
-				if req.FormValue("state") != state.Value {
-					log.Println("Invalid OAuth2 State")
-				} else {
-					token, err := SpotifyConf.Exchange(oauth2.NoContext, req.FormValue("code"))
-					if err != nil {
-						log.Println(err)
-					} else {
-						queryParams := req.URL.Query()
-						body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/", queryParams)
-						if err != nil {
-							http.Error(w, err.Error(), http.StatusBadRequest)
-							log.Println(err)
-						} else {
-							var user User
-							json.Unmarshal(body, &user)
-							user.AccessToken = token.AccessToken
-							user.RefreshToken = token.RefreshToken
-							user.TokenExpiry = token.Expiry
-							user.TokenType = token.TokenType
-							userCollection := mongoClient.Database("test").Collection("users")
-							ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
-							bUser, _ := bson.Marshal(user)
-							exists, err := userCollection.CountDocuments(ctx, bson.M{"spotifyid": user.SpotifyID})
-							if err != nil {
-								log.Println("Error in Querying users Collection")
-								log.Println(err)
-							} else if exists == 0 {
-								_, err := userCollection.InsertOne(ctx, bUser)
-								if err != nil {
-									log.Println("Error in Performing Request")
-									log.Println(err)
-									return
-								}
-							}
-							expiry := time.Now().Add(3 * 24 * time.Hour)
-							_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": user.SpotifyID})
-							if err != nil {
-								log.Println("Error Creating Token")
-							}
-							http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
-							http.Redirect(w, req, "https://lophi.dev/#/tracks", http.StatusTemporaryRedirect)
-						}
-					}
-				}
-
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
+			if req.FormValue("state") != state.Value {
+				log.Println("Invalid OAuth2 State")
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			token, err := SpotifyConf.Exchange(oauth2.NoContext, req.FormValue("code"))
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			queryParams := req.URL.Query()
+			body, err := spotifyRequest(token, "https://api.spotify.com/v1/me/", queryParams)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			var user User
+			json.Unmarshal(body, &user)
+			user.AccessToken = token.AccessToken
+			user.RefreshToken = token.RefreshToken
+			user.TokenExpiry = token.Expiry
+			user.TokenType = token.TokenType
+			userCollection := mongoClient.Database("test").Collection("users")
+			ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+			bUser, _ := bson.Marshal(user)
+			exists, err := userCollection.CountDocuments(ctx, bson.M{"spotifyid": user.SpotifyID})
+			if err != nil {
+				log.Println("Error in Querying users Collection")
+				log.Println(err)
+			} else if exists == 0 {
+				_, err := userCollection.InsertOne(ctx, bUser)
+				if err != nil {
+					log.Println("Error in Performing Request")
+					log.Println(err)
+					return
+				}
+			}
+			expiry := time.Now().Add(3 * 24 * time.Hour)
+			_, tokenString, err := tokenAuth.Encode(jwt.MapClaims{"id": user.SpotifyID})
+			if err != nil {
+				log.Println("Error Creating Token")
+			}
+			http.SetCookie(w, &http.Cookie{Name: "token", Value: tokenString, Path: "/", Domain: "lophi.dev", Expires: expiry})
+			http.Redirect(w, req, "https://lophi.dev/#/tracks", http.StatusTemporaryRedirect)
 		})
 
 		router.Group(func(spotifyRouter chi.Router) {
