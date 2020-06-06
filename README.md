@@ -8,7 +8,7 @@ LoPhi is a web application built using Go and Vue.js which aims to beautifully d
 
 This requires a working Go installation and Node.js
 
-```bash
+```Shell
 git clone https://github.com/Jared-Mullin/LoPhi-Music.git
 cd client
 npm install
